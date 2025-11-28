@@ -453,7 +453,7 @@ export const exportToPDF = async (project: Project, plsData: ServiceCategory[], 
     format: 'a4',
   }) as jsPDFWithAutoTable;
 
-  const primaryColor = options.layout?.primaryColor || '#005f9e'; // Default blue
+  const primaryColor = options.layout?.primaryColor || '#005f9e'; 
   const textColor = '#333333';
   const logo = options.layout?.logoBase64;
   const headerLogo = options.layout?.headerLogoBase64;
@@ -490,94 +490,107 @@ export const exportToPDF = async (project: Project, plsData: ServiceCategory[], 
       doc.text(footerString, pageWidth / 2, pageHeight - 10, { align: 'center' });
   }
 
-  // --- Cover Page ---
+  // --- Cover Page (Layout Restored to Match Reference) ---
   addHeader();
-  cursorY += 40;
-
+  
+  // 1. Logo (Centered)
   if (logo) {
       const imgProps = doc.getImageProperties(logo);
-      const imgWidth = 60;
+      const imgWidth = 50; // Smaller size for cover logo as per ref
       const imgHeight = (imgProps.height * imgWidth) / imgProps.width;
       doc.addImage(logo, 'PNG', (pageWidth - imgWidth) / 2, cursorY, imgWidth, imgHeight, undefined, 'FAST');
-      cursorY += imgHeight + 20;
+      cursorY += imgHeight + 15;
   } else {
-      // Placeholder if no logo
-      cursorY += 40;
+      cursorY += 25;
   }
 
-  doc.setFontSize(24);
-  doc.setTextColor(primaryColor);
-  doc.text(options.title, pageWidth / 2, cursorY, { align: 'center' });
-  cursorY += 15;
+  // 2. Title (Centered)
+  doc.setFontSize(18);
+  doc.setTextColor(0, 0, 0);
+  doc.setFont(fontFamily, 'bold');
+  doc.text("Planilha de Levantamento de Serviços - PLS", pageWidth / 2, cursorY, { align: 'center' });
+  cursorY += 20;
 
-  doc.setFontSize(14);
-  doc.setTextColor(textColor);
-  doc.text(project.name, pageWidth / 2, cursorY, { align: 'center' });
-  cursorY += 10;
+  doc.setFontSize(10);
+  doc.setTextColor(0, 0, 0);
 
-  doc.setFontSize(12);
-  doc.setTextColor(100);
+  // 3. Metadata Block (Measurement, Date, Project) - Vertical List
+  const metadataX = margin;
+  const metadataLabelX = margin;
+  const metadataValueX = margin + 40; // Indentation for values if needed, but ref seems just list
+  const lineHeight = 7;
   
-  // Medição e Data em linhas separadas
-  doc.text(`Medição: ${options.measurementNumber || 1}`, margin, cursorY);
-  cursorY += 6;
-  doc.text(`Data da medição: ${new Date().toLocaleDateString('pt-BR')}`, margin, cursorY);
-  cursorY += 6;
-  doc.text(`Empreendimento: ${project.name}`, margin, cursorY);
+  doc.setFont(fontFamily, 'bold');
+  doc.text(`Medição: ${options.measurementNumber || 1}`, metadataX, cursorY);
+  cursorY += lineHeight;
   
-  cursorY += 15;
+  doc.text(`Data da medição: ${new Date().toLocaleDateString('pt-BR')}`, metadataX, cursorY);
+  cursorY += lineHeight;
+  
+  doc.text(`Empreendimento: ${project.name}`, metadataX, cursorY);
+  cursorY += 15; // Gap before stakeholders
 
-  // Project Details Table on Cover
-  if (options.includeProjectDetails) {
-      autoTable(doc, {
-          startY: 100, // Adjusted startY to fit the new lines
-          head: [['Detalhe', 'Informação']],
-          body: [
-              ['Proponente', `${project.developer.name}\nCNPJ: ${project.developer.cnpj}`],
-              ['Construtora', `${project.construction_company.name}\nCNPJ: ${project.construction_company.cnpj}`],
-              ['Responsável Técnico', `${project.responsible_engineer.name}\nCREA: ${project.responsible_engineer.crea}`],
-              ['Endereço', `${project.address.street}, ${project.address.city} - ${project.address.state}`],
-              ['Custo Total da Obra', formatCurrency(project.cost_of_works)],
-          ],
-          theme: 'striped' as const, // Explicitly cast to literal type
-          headStyles: { fillColor: primaryColor },
-          styles: { font: fontFamily },
-          columnStyles: {
-              0: { fontStyle: 'bold', cellWidth: 50 },
-          },
-      });
-  }
-  
-  // --- Key Metrics on Cover ---
-  // Position metrics below the table
-  const finalY = doc.lastAutoTable.finalY + 15;
+  // 4. Stakeholders Block (Vertical List)
+  // Format: "Label: Value"
+  const drawDetailRow = (label: string, value: string) => {
+      doc.setFont(fontFamily, 'bold');
+      doc.text(label, metadataX, cursorY);
+      
+      const labelWidth = doc.getTextWidth(label);
+      doc.setFont(fontFamily, 'normal');
+      
+      // Calculate remaining width for value to avoid overflow
+      const valueX = metadataX + 45; // Fixed alignment for values
+      const splitValue = doc.splitTextToSize(value || 'N/A', pageWidth - margin - valueX);
+      doc.text(splitValue, valueX, cursorY);
+      
+      cursorY += (splitValue.length * lineHeight); 
+  };
+
+  drawDetailRow("Proponente:", `${project.developer.name} - CNPJ: ${project.developer.cnpj}`);
+  drawDetailRow("Construtora:", `${project.construction_company.name} - CNPJ: ${project.construction_company.cnpj}`);
+  drawDetailRow("Responsável Técnico:", `${project.responsible_engineer.name} - CREA: ${project.responsible_engineer.crea}`);
+  drawDetailRow("Endereço da Obra:", `${project.address.street}, ${project.address.city} - ${project.address.state}`);
+
+  // 5. Key Metrics (3 Blue Boxes at Bottom) - Ref: Page 1 bottom
+  // Position them near the bottom of the page
+  const boxesY = pageHeight - 50; 
+  const boxHeight = 25;
+  const boxWidth = (pageWidth - (margin * 2) - 10) / 3;
+
   const metrics = [
-      { label: 'Incidência Mensurada', value: `${financials.totalProgress.toFixed(2)}%` }, // Changed label
-      { label: 'Valor Liberado', value: formatCurrency(financials.totalReleased) },
-      { label: 'Saldo a Medir', value: formatCurrency(financials.balanceToMeasure) },
+      { label: 'Incidência Mensurada', value: `${financials.totalProgress.toFixed(2)}%` },
+      { label: 'Executado', value: formatCurrency(financials.totalReleased) },
+      { label: 'Custo da Obra', value: formatCurrency(project.cost_of_works) },
   ];
 
-  const boxWidth = (pageWidth - (margin * 2) - 10) / 3;
   metrics.forEach((metric, index) => {
       const x = margin + (boxWidth + 5) * index;
-      doc.setFillColor(245, 245, 245);
-      doc.setDrawColor(200, 200, 200);
-      doc.roundedRect(x, finalY, boxWidth, 25, 3, 3, 'FD');
       
-      doc.setFontSize(10);
-      doc.setTextColor(100);
-      doc.text(metric.label, x + boxWidth / 2, finalY + 8, { align: 'center' });
+      // Box Background (Light Blue: #eff6ff / 239, 246, 255)
+      doc.setFillColor(239, 246, 255); 
+      doc.setDrawColor(219, 234, 254); // Border
+      doc.roundedRect(x, boxesY, boxWidth, boxHeight, 2, 2, 'FD');
       
-      doc.setFontSize(12);
-      doc.setTextColor(primaryColor);
-      doc.setFont(fontFamily, 'bold');
-      doc.text(metric.value, x + boxWidth / 2, finalY + 18, { align: 'center' });
+      // Label (Small, Gray)
+      doc.setFontSize(8);
+      doc.setTextColor(100); // Gray
       doc.setFont(fontFamily, 'normal');
+      doc.text(metric.label, x + 4, boxesY + 8);
+      
+      // Value (Large, Blue/Black)
+      doc.setFontSize(12);
+      if (index === 0) doc.setTextColor(245, 158, 11); // Orange for Incidence
+      else if (index === 1) doc.setTextColor(22, 163, 74); // Green for Executed
+      else doc.setTextColor(0); // Black for Cost
+      
+      doc.setFont(fontFamily, 'bold');
+      doc.text(metric.value, x + 4, boxesY + 18);
   });
 
   // --- Content Pages ---
   
-  // AI Summary Section
+  // AI Summary Section (Optional)
   if (options.aiSummary) {
       doc.addPage();
       addHeader();
@@ -593,57 +606,65 @@ export const exportToPDF = async (project: Project, plsData: ServiceCategory[], 
       doc.text(splitSummary, margin, cursorY);
   }
 
-  // Financial Summary Section
+  // Financial Summary Section (Page 2 Reference)
   if (options.includeFinancialSummary) {
       doc.addPage();
       addHeader();
-      cursorY = 30;
-      doc.setFontSize(16);
-      doc.setTextColor(primaryColor);
+      cursorY = 25; // Adjusted start Y
+      
+      doc.setFontSize(14);
+      doc.setTextColor(0);
+      doc.setFont(fontFamily, 'bold');
       doc.text("Resumo Financeiro por Etapa", margin, cursorY);
-      cursorY += 10;
+      cursorY += 5;
 
-      // Prepare data for the table
       const summaryBody = financials.categoryTotals.map(cat => [
           `${cat.id}. ${cat.name}`,
           `${cat.totalIncidence.toFixed(2)}%`,
-          `${cat.measuredIncidence.toFixed(2)}%`, // New column data
-          '', // Placeholder for Progress Bar
+          `${cat.measuredIncidence.toFixed(2)}%`,
+          '', // Progress Bar column
           formatCurrency(cat.released),
           formatCurrency(cat.totalCost)
       ]);
 
-      // Calculate totals for footer
       const totalGlobalIncidence = financials.categoryTotals.reduce((sum, cat) => sum + cat.totalIncidence, 0);
-      // Measured Incidence is summed directly from the categories' measured incidences
       const totalMeasuredIncidence = financials.categoryTotals.reduce((sum, cat) => sum + cat.measuredIncidence, 0);
       const totalReleased = financials.categoryTotals.reduce((sum, cat) => sum + cat.released, 0);
       const totalCost = financials.categoryTotals.reduce((sum, cat) => sum + cat.totalCost, 0);
       
-      // Calculate total progress percentage based on financial values to match
-      // Total Progress = (Total Released / Total Cost) * 100
-      // This ensures 100% accurate correlation with the monetary values.
-      // const totalProgressPercentage = totalCost > 0 ? (totalReleased / totalCost) * 100 : 0;
-
       autoTable(doc, {
           startY: cursorY,
-          head: [['Etapa', 'Incidência Global', 'Incidência Mensurada', 'Progresso', 'Valor Liberado', 'Custo Total']], // Renamed header
+          head: [['Etapa', 'Incidência Global', 'Incidência Mensurada', 'Progresso', 'Valor Liberado', 'Custo Total']],
           body: summaryBody,
           foot: [[
               'TOTAL', 
               `${totalGlobalIncidence.toFixed(2)}%`, 
               `${totalMeasuredIncidence.toFixed(2)}%`,
-              '', // Progresso column is empty in footer
+              '',
               formatCurrency(totalReleased), 
               formatCurrency(totalCost)
           ]],
-          theme: 'striped' as const,
-          headStyles: { fillColor: primaryColor },
-          footStyles: { fillColor: primaryColor, fontStyle: 'bold' as const }, // Style the footer
-          styles: { font: fontFamily, fontSize: 9, cellPadding: 3, valign: 'middle' },
+          theme: 'plain', // Cleaner look like reference
+          headStyles: { 
+              fillColor: [44, 62, 80], 
+              textColor: 255,
+              fontSize: 8,
+              halign: 'left'
+          },
+          footStyles: { 
+              fillColor: [44, 62, 80], 
+              textColor: 255, 
+              fontStyle: 'bold',
+              fontSize: 8
+          },
+          bodyStyles: { fontSize: 8, cellPadding: 2 },
           columnStyles: {
-              0: { cellWidth: options.orientation === 'l' ? 80 : 60 },
-              3: { cellWidth: 30 }
+              0: { cellWidth: 'auto' }, // Etapa
+              1: { halign: 'center' },
+              2: { halign: 'center' },
+              3: { cellWidth: 25 },
+              4: { halign: 'right' },
+              5: { halign: 'right' }
           },
           didDrawCell: (data) => {
               if (data.section === 'body' && data.column.index === 3) {
@@ -651,113 +672,120 @@ export const exportToPDF = async (project: Project, plsData: ServiceCategory[], 
                   const cat = financials.categoryTotals[rowIndex];
                   if (cat) {
                       const progressBarWidth = data.cell.width - 6;
-                      const progressBarHeight = 4;
+                      const progressBarHeight = 3;
                       const x = data.cell.x + 3;
                       const y = data.cell.y + (data.cell.height - progressBarHeight) / 2;
                       
-                      // Background
                       doc.setFillColor(230, 230, 230);
                       doc.rect(x, y, progressBarWidth, progressBarHeight, 'F');
                       
-                      // Progress
                       doc.setFillColor(251, 191, 36); // amber-400
                       const fillWidth = (progressBarWidth * cat.progress) / 100;
                       doc.rect(x, y, fillWidth, progressBarHeight, 'F');
-                      
-                      // Text
-                      doc.setFontSize(7);
-                      doc.setTextColor(100);
-                      doc.text(`${cat.progress.toFixed(2)}%`, x + progressBarWidth + 2, y + 3, { align: 'left' }); // Move text to right if needed, or overlay
                   }
               }
           }
       });
   }
 
-  // Detailed PLS Table
+  // Detailed PLS Table (Page 2-3 Reference)
   if (options.includeProgressTable) {
-      doc.addPage();
-      addHeader();
-      cursorY = 30;
-      doc.setFontSize(16);
-      doc.setTextColor(primaryColor);
-      doc.text("Detalhamento de Progresso da PLS", margin, cursorY);
-      cursorY += 10;
+      // Calculate where summary ended or use a fresh page if needed
+      let startY = doc.lastAutoTable?.finalY ? doc.lastAutoTable.finalY + 15 : 25;
+      
+      // Add logic to start new page if space is low
+      if (startY > pageHeight - 40) {
+          doc.addPage();
+          addHeader();
+          startY = 25;
+      }
+
+      doc.setFontSize(14);
+      doc.setTextColor(0);
+      doc.setFont(fontFamily, 'bold');
+      doc.text("Detalhamento de Progresso da PLS", margin, startY);
+      startY += 5;
 
       const filteredPls = plsData.filter(cat => options.selectedCategoryIds.includes(cat.id));
       const tableBody: any[] = [];
 
       filteredPls.forEach(cat => {
-          // Calculate the sum of measured incidence for the category sub-items
-          // This must match the logic in ProjectContext (weighted sum of subitems)
           const categoryMeasuredIncidence = financials.categoryTotals.find(c => c.id === cat.id)?.measuredIncidence || 0;
+          const categoryReleased = financials.categoryTotals.find(c => c.id === cat.id)?.released || 0;
 
+          // Category Header Row - Gray Background
           tableBody.push([
-              { content: `${cat.id}. ${cat.name}`, colSpan: 2, styles: { fontStyle: 'bold', fillColor: [240, 240, 240] } },
-              { content: `${cat.totalIncidence.toFixed(2)}%`, styles: { fontStyle: 'bold', fillColor: [240, 240, 240] } },
-              { content: `${categoryMeasuredIncidence.toFixed(2)}%`, styles: { fontStyle: 'bold', fillColor: [240, 240, 240] } }, // Measured Incidence Sum
-              { content: '', colSpan: 3, styles: { fillColor: [240, 240, 240] } } // Reduced colSpan from 4 to 3
+              { content: `${cat.id}. ${cat.name}`, colSpan: 2, styles: { fontStyle: 'bold', fillColor: [240, 240, 240], textColor: 0 } },
+              { content: `${cat.totalIncidence.toFixed(2)}%`, styles: { fontStyle: 'bold', fillColor: [240, 240, 240], textColor: 0, halign: 'center' } },
+              { content: `${categoryMeasuredIncidence.toFixed(2)}%`, styles: { fontStyle: 'bold', fillColor: [240, 240, 240], textColor: 0, halign: 'center' } },
+              { content: '', styles: { fillColor: [240, 240, 240] } }, 
+              { content: formatCurrency(categoryReleased), styles: { fontStyle: 'bold', fillColor: [240, 240, 240], textColor: 0, halign: 'right' } },
+              { content: formatCurrency(cat.totalCost), styles: { fontStyle: 'bold', fillColor: [240, 240, 240], textColor: 0, halign: 'right' } }
           ]);
 
           cat.subItems.forEach(item => {
               const itemProgress = project.progress[item.id] || [];
               const avgProgress = getAverageProgress(itemProgress, project.housing_units.length);
-              
-              // Calculate Measured Incidence for the item
-              // Formula: Item Incidence * (Average Progress / 100)
               const itemMeasuredIncidence = item.incidence * (avgProgress / 100);
+              const itemReleasedValue = item.cost * (avgProgress / 100);
 
               tableBody.push([
                   item.id,
                   item.name,
                   `${item.incidence.toFixed(2)}%`,
-                  `${itemMeasuredIncidence.toFixed(2)}%`, // New Column Value
-                  '', // Progress Bar
-                  `${avgProgress.toFixed(2)}%`,
+                  `${itemMeasuredIncidence.toFixed(2)}%`,
+                  `${avgProgress.toFixed(2)}%`, // Hidden by hook
+                  formatCurrency(itemReleasedValue),
                   formatCurrency(item.cost)
               ]);
           });
       });
 
       autoTable(doc, {
-          startY: cursorY,
-          head: [['Item', 'Serviço', 'Incidência Global', 'Incidência Mensurada', 'Progresso Visual', '% Médio', 'Valor Total']], // Renamed header
+          startY: startY,
+          head: [['ID', 'Serviço', 'Incidência Global', 'Incidência Mensurada', 'Prog. Médio', 'Valor Liberado', 'Custo Total']],
           body: tableBody,
-          theme: 'grid' as const,
-          headStyles: { fillColor: primaryColor },
-          styles: { font: fontFamily, fontSize: 8, cellPadding: 2 },
+          theme: 'plain',
+          headStyles: { 
+              fillColor: [44, 62, 80], 
+              textColor: 255,
+              fontSize: 7,
+              halign: 'center'
+          },
+          styles: { font: fontFamily, fontSize: 7, cellPadding: 1.5, valign: 'middle', lineColor: [200, 200, 200], lineWidth: 0.1 },
           columnStyles: {
-              0: { cellWidth: 15 },
+              0: { cellWidth: 10 },
               1: { cellWidth: 'auto' },
-              2: { cellWidth: 25, halign: 'right' as const },
-              3: { cellWidth: 25, halign: 'right' as const }, // New column style
-              4: { cellWidth: 30 },
-              5: { cellWidth: 15, halign: 'right' as const },
-              6: { cellWidth: 25, halign: 'right' as const },
+              2: { cellWidth: 18, halign: 'center' },
+              3: { cellWidth: 18, halign: 'center' },
+              4: { cellWidth: 25, halign: 'center' },
+              5: { cellWidth: 22, halign: 'right' },
+              6: { cellWidth: 22, halign: 'right' },
           },
           didDrawCell: (data) => {
+              // Draw Progress Bar in column 4 (index 4)
               if (data.section === 'body' && data.column.index === 4) {
                   const cellText = data.cell.raw;
-                  // Only draw if it's NOT a category header (which has empty string here but we check type)
-                  // Category rows have colSpan, so index 4 might not exist or be different.
-                  // We check if the row has an ID in col 0 (sub-item)
                   const isSubItem = data.row.cells[0].raw.toString().includes('.');
                   
                   if (isSubItem && typeof cellText === 'string') {
-                      const avgProgress = parseFloat(data.row.cells[5].raw.toString().replace('%', ''));
-                      
+                      const avgProgress = parseFloat(cellText.replace('%', ''));
                       if (!isNaN(avgProgress)) {
-                          const progressBarWidth = data.cell.width - 4;
-                          const progressBarHeight = 3;
-                          const x = data.cell.x + 2;
-                          const y = data.cell.y + (data.cell.height - progressBarHeight) / 2;
+                          const padding = 2;
+                          const barHeight = 3;
+                          const barWidth = data.cell.width - (padding * 2);
+                          const x = data.cell.x + padding;
+                          const y = data.cell.y + (data.cell.height / 2) - (barHeight / 2) + 2;
                           
                           doc.setFillColor(230, 230, 230);
-                          doc.rect(x, y, progressBarWidth, progressBarHeight, 'F');
+                          doc.rect(x, y, barWidth, barHeight, 'F');
                           
                           doc.setFillColor(primaryColor);
-                          const fillWidth = (progressBarWidth * avgProgress) / 100;
-                          doc.rect(x, y, fillWidth, progressBarHeight, 'F');
+                          const fillWidth = (barWidth * avgProgress) / 100;
+                          doc.rect(x, y, fillWidth, barHeight, 'F');
+                          
+                          // Adjust text position to be above bar
+                          data.cell.y -= 2; 
                       }
                   }
               }
@@ -765,12 +793,119 @@ export const exportToPDF = async (project: Project, plsData: ServiceCategory[], 
       });
   }
 
+  // --- Matrix of Progress (Page 4-5 Reference) ---
+  if (options.includeUnitDetails) {
+      doc.addPage('a4', 'landscape'); // Force landscape for Matrix
+      addHeader();
+      let startY = 25;
+      
+      doc.setFontSize(14);
+      doc.setTextColor(0);
+      doc.setFont(fontFamily, 'bold');
+      doc.text("Matriz de Progresso por Unidade", margin, startY);
+      startY += 5;
+
+      const filteredPls = plsData.filter(cat => options.selectedCategoryIds.includes(cat.id));
+      
+      // We will create a dense matrix table
+      // Columns: Service Name | Unit 1 | Unit 2 | ...
+      // If there are too many units (e.g., > 30), we might need to split tables, but for now we try to fit.
+      
+      // Limit units displayed if too many to avoid crash, or split tables (advanced). 
+      // For this implementation, we will list all units but use very small font.
+      const units = project.housing_units;
+      
+      const head = [['Serviço', ...units.map((u, i) => `${i+1}`)]];
+      const body: any[] = [];
+
+      filteredPls.forEach(cat => {
+          cat.subItems.forEach(item => {
+              const progressRow = project.progress[item.id] || [];
+              const rowData = [
+                  item.name,
+                  ...units.map((_, i) => {
+                      const val = progressRow[i] || 0;
+                      return val === 100 ? 'X' : val === 0 ? '' : `${val}`;
+                  })
+              ];
+              body.push(rowData);
+          });
+      });
+
+      autoTable(doc, {
+          startY: startY,
+          head: head,
+          body: body,
+          theme: 'grid',
+          styles: { 
+              fontSize: 5, // Tiny font for matrix
+              cellPadding: 1, 
+              halign: 'center',
+              valign: 'middle'
+          },
+          headStyles: {
+              fillColor: [44, 62, 80],
+              fontSize: 5,
+              textColor: 255
+          },
+          columnStyles: {
+              0: { halign: 'left', cellWidth: 40 } // Service Name column
+          },
+          didParseCell: (data) => {
+              // Highlight completed cells
+              if (data.section === 'body' && data.column.index > 0) {
+                  if (data.cell.raw === 'X') {
+                      data.cell.styles.fillColor = [220, 252, 231]; // Light green
+                      data.cell.styles.fontStyle = 'bold';
+                  }
+              }
+          }
+      });
+  }
+
+  // --- Signature Page (Page 6 Reference) ---
+  doc.addPage('a4', 'portrait'); // Back to portrait for signatures
+  addHeader();
+  
+  const signatureY = pageHeight - 60;
+  const signatureLineLength = 80;
+  
+  // Create side-by-side or stacked signatures. Reference Page 6 looks simpler.
+  // We'll do distinct blocks vertically separated as per the OCR "Cataratas... Proponente" then "Yana... Responsável".
+  
+  const leftX = (pageWidth / 2) - (signatureLineLength / 2);
+  let currentSigY = signatureY - 40;
+
+  // Proponente Block
+  doc.setDrawColor(0);
+  doc.line(leftX, currentSigY, leftX + signatureLineLength, currentSigY);
+  
+  doc.setFontSize(10);
+  doc.setTextColor(0);
+  doc.setFont(fontFamily, 'bold');
+  const propName = doc.splitTextToSize(project.developer.name, signatureLineLength + 10);
+  doc.text(propName, pageWidth / 2, currentSigY + 5, { align: 'center' });
+  
+  doc.setFont(fontFamily, 'normal');
+  doc.text("Proponente", pageWidth / 2, currentSigY + 5 + (propName.length * 5), { align: 'center' });
+
+  // Resp Técnico Block
+  currentSigY = signatureY + 20;
+  doc.line(leftX, currentSigY, leftX + signatureLineLength, currentSigY);
+  
+  doc.setFont(fontFamily, 'bold');
+  const engName = doc.splitTextToSize(project.responsible_engineer.name, signatureLineLength + 10);
+  doc.text(engName, pageWidth / 2, currentSigY + 5, { align: 'center' });
+  
+  doc.setFont(fontFamily, 'normal');
+  doc.text("Responsável Técnico", pageWidth / 2, currentSigY + 5 + (engName.length * 5), { align: 'center' });
+
+
   // Page Numbers
   const pageCount = doc.getNumberOfPages();
   for (let i = 1; i <= pageCount; i++) {
       doc.setPage(i);
-      if (i > 1) { // Skip footer on cover page if desired, or keep it. Let's keep it for consistency but maybe skip cover?
-         // Actually, typically cover doesn't have page number.
+      if (i > 1) { 
          addFooter(i, pageCount);
       }
   }
