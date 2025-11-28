@@ -470,28 +470,40 @@ export const exportToPDF = async (project: Project, plsData: ServiceCategory[], 
 
   // --- Helper Functions ---
   const addHeader = () => {
+      const currentWidth = doc.internal.pageSize.width;
       if (headerLogo) {
-          doc.addImage(headerLogo, 'PNG', margin, 5, 20, 10, undefined, 'FAST');
+          const imgProps = doc.getImageProperties(headerLogo);
+          // Define a fixed height for the header logo
+          const pdfHeight = 6; // Reduced to half size (was 12)
+          // Calculate the width based on the aspect ratio to prevent distortion
+          const pdfWidth = (imgProps.width * pdfHeight) / imgProps.height;
+          
+          doc.addImage(headerLogo, 'PNG', margin, 5, pdfWidth, pdfHeight, undefined, 'FAST');
       }
       if (headerText) {
           doc.setFontSize(8);
           doc.setTextColor(100);
-          doc.text(headerText, pageWidth - margin, 10, { align: 'right' });
+          doc.text(headerText, currentWidth - margin, 10, { align: 'right' });
       }
   }
 
   const addFooter = (pageNumber: number, totalPages: number) => {
       doc.setFontSize(8);
       doc.setTextColor(100);
-      let footerString = `Página ${pageNumber} de ${totalPages}`;
-      if (footerText) {
-          footerString = `${footerText} | ${footerString}`;
-      }
-      doc.text(footerString, pageWidth / 2, pageHeight - 10, { align: 'center' });
+      
+      const currentWidth = doc.internal.pageSize.width;
+      const currentHeight = doc.internal.pageSize.height;
+
+      const leftText = footerText || `${project.name} - ${project.address.city || ''}, ${project.address.state || ''}`;
+      const rightText = `Relatório gerado em: ${new Date().toLocaleDateString('pt-BR')} | Página ${pageNumber} de ${totalPages}`;
+      
+      // Footer aligned Left and Right as per reference
+      doc.text(leftText, margin, currentHeight - 10, { align: 'left' });
+      doc.text(rightText, currentWidth - margin, currentHeight - 10, { align: 'right' });
   }
 
   // --- Cover Page (Layout Restored to Match Reference) ---
-  addHeader();
+  // Note: We DO NOT call addHeader() here as requested. Page 1 has no top-left logo.
   
   // 1. Logo (Centered)
   if (logo) {
@@ -516,8 +528,6 @@ export const exportToPDF = async (project: Project, plsData: ServiceCategory[], 
 
   // 3. Metadata Block (Measurement, Date, Project) - Vertical List
   const metadataX = margin;
-  const metadataLabelX = margin;
-  const metadataValueX = margin + 40; // Indentation for values if needed, but ref seems just list
   const lineHeight = 7;
   
   doc.setFont(fontFamily, 'bold');
@@ -764,31 +774,7 @@ export const exportToPDF = async (project: Project, plsData: ServiceCategory[], 
           },
           didDrawCell: (data) => {
               // Draw Progress Bar in column 4 (index 4)
-              if (data.section === 'body' && data.column.index === 4) {
-                  const cellText = data.cell.raw;
-                  const isSubItem = data.row.cells[0].raw.toString().includes('.');
-                  
-                  if (isSubItem && typeof cellText === 'string') {
-                      const avgProgress = parseFloat(cellText.replace('%', ''));
-                      if (!isNaN(avgProgress)) {
-                          const padding = 2;
-                          const barHeight = 3;
-                          const barWidth = data.cell.width - (padding * 2);
-                          const x = data.cell.x + padding;
-                          const y = data.cell.y + (data.cell.height / 2) - (barHeight / 2) + 2;
-                          
-                          doc.setFillColor(230, 230, 230);
-                          doc.rect(x, y, barWidth, barHeight, 'F');
-                          
-                          doc.setFillColor(primaryColor);
-                          const fillWidth = (barWidth * avgProgress) / 100;
-                          doc.rect(x, y, fillWidth, barHeight, 'F');
-                          
-                          // Adjust text position to be above bar
-                          data.cell.y -= 2; 
-                      }
-                  }
-              }
+              // Logic removed as per request to keep it cleaner
           }
       });
   }
@@ -803,6 +789,12 @@ export const exportToPDF = async (project: Project, plsData: ServiceCategory[], 
       doc.setTextColor(0);
       doc.setFont(fontFamily, 'bold');
       doc.text("Matriz de Progresso por Unidade", margin, startY);
+      startY += 5;
+      
+      // Legend
+      doc.setFontSize(10);
+      doc.setFont(fontFamily, 'normal');
+      doc.text("X = 100%", margin, startY);
       startY += 5;
 
       const filteredPls = plsData.filter(cat => options.selectedCategoryIds.includes(cat.id));
@@ -864,16 +856,16 @@ export const exportToPDF = async (project: Project, plsData: ServiceCategory[], 
   }
 
   // --- Signature Page (Page 6 Reference) ---
-  doc.addPage('a4', 'portrait'); // Back to portrait for signatures
+  doc.addPage('a4', 'landscape'); // Changed to landscape for signatures
   addHeader();
   
-  const signatureY = pageHeight - 60;
+  const currentPageWidth = doc.internal.pageSize.width;
+  const currentPageHeight = doc.internal.pageSize.height;
+
+  const signatureY = currentPageHeight - 60;
   const signatureLineLength = 80;
   
-  // Create side-by-side or stacked signatures. Reference Page 6 looks simpler.
-  // We'll do distinct blocks vertically separated as per the OCR "Cataratas... Proponente" then "Yana... Responsável".
-  
-  const leftX = (pageWidth / 2) - (signatureLineLength / 2);
+  const leftX = (currentPageWidth / 2) - (signatureLineLength / 2);
   let currentSigY = signatureY - 40;
 
   // Proponente Block
@@ -884,10 +876,10 @@ export const exportToPDF = async (project: Project, plsData: ServiceCategory[], 
   doc.setTextColor(0);
   doc.setFont(fontFamily, 'bold');
   const propName = doc.splitTextToSize(project.developer.name, signatureLineLength + 10);
-  doc.text(propName, pageWidth / 2, currentSigY + 5, { align: 'center' });
+  doc.text(propName, currentPageWidth / 2, currentSigY + 5, { align: 'center' });
   
   doc.setFont(fontFamily, 'normal');
-  doc.text("Proponente", pageWidth / 2, currentSigY + 5 + (propName.length * 5), { align: 'center' });
+  doc.text("Proponente", currentPageWidth / 2, currentSigY + 5 + (propName.length * 5), { align: 'center' });
 
   // Resp Técnico Block
   currentSigY = signatureY + 20;
@@ -895,10 +887,10 @@ export const exportToPDF = async (project: Project, plsData: ServiceCategory[], 
   
   doc.setFont(fontFamily, 'bold');
   const engName = doc.splitTextToSize(project.responsible_engineer.name, signatureLineLength + 10);
-  doc.text(engName, pageWidth / 2, currentSigY + 5, { align: 'center' });
+  doc.text(engName, currentPageWidth / 2, currentSigY + 5, { align: 'center' });
   
   doc.setFont(fontFamily, 'normal');
-  doc.text("Responsável Técnico", pageWidth / 2, currentSigY + 5 + (engName.length * 5), { align: 'center' });
+  doc.text("Responsável Técnico", currentPageWidth / 2, currentSigY + 5 + (engName.length * 5), { align: 'center' });
 
 
   // Page Numbers
