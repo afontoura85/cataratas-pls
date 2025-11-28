@@ -1,0 +1,8 @@
+{
+  "name": "Cataratas - PLS PROD",
+  "description": "An intelligent application to assist in filling out the Construction Service Release Spreadsheet (PLS). It uses AI to analyze photos, provide expert advice, and research up-to-date information, streamlining the process for surveyors and project managers. All data is saved locally in your browser.",
+  "requestFramePermissions": [
+    "microphone",
+    "geolocation"
+  ]
+}
