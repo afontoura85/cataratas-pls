@@ -116,7 +116,7 @@ const InlineEditInput: React.FC<{
 
 
 /**
- * O principal componente de tabela para exibir e interagir com a PLS (Planilha de Levantamento de Serviços).
+ * O principal componente de tabela para exibir e interagir com a PLS (Planilha de Levantamento de Serviços - PLS).
  * Ele mostra uma visão em matriz de todos os serviços e seu progresso em cada unidade.
  * Suporta busca para filtrar os serviços e edição em linha para atualizações rápidas.
  * @param {PlsTableProps} props As propriedades do componente.

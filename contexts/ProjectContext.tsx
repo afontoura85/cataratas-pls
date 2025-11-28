@@ -1,3 +1,4 @@
+
 /**
  * @file Define o contexto global de gerenciamento de estado para os projetos.
  * Utiliza o padrão `useReducer` para uma manipulação de estado previsível e centralizada.
@@ -232,11 +233,30 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
                 }
             });
             
-            totalWeightedProgress += categoryWeightedProgress;
-            const categoryReleased = (categoryWeightedProgress / 100) * costOfWorks;
-            const categoryProgress = category.totalIncidence > 0 ? (categoryWeightedProgress / category.totalIncidence) * 100 : 0;
+            // New logic: Sum of Subitems * Global Incidence (decimal) * 10
+            // categoryWeightedProgress corresponds to Sum of Subitems (in percentage points of the total project)
+            // category.totalIncidence corresponds to Global Incidence (in percentage e.g. 6.46)
+            // We divide category.totalIncidence by 100 to get decimal, then multiply by 10 as requested.
+            const measuredIncidence = categoryWeightedProgress * (category.totalIncidence / 100) * 10;
+
+            totalWeightedProgress += measuredIncidence;
             
-            categoryTotals.push({ id: category.id, name: category.name, released: categoryReleased, progress: categoryProgress, totalCost: category.totalCost, totalIncidence: category.totalIncidence });
+            // Released value based on the new measured incidence
+            const categoryReleased = (measuredIncidence / 100) * costOfWorks;
+            
+            // Progress of the category itself based on the new measured incidence
+            // If measuredIncidence is the % of the total project, we divide by totalIncidence to get % of category
+            const categoryProgress = category.totalIncidence > 0 ? (measuredIncidence / category.totalIncidence) * 100 : 0;
+            
+            categoryTotals.push({ 
+                id: category.id, 
+                name: category.name, 
+                released: categoryReleased, 
+                progress: categoryProgress, 
+                totalCost: category.totalCost, 
+                totalIncidence: category.totalIncidence,
+                measuredIncidence: measuredIncidence // Expose the calculated value
+            });
         });
         
         const totalReleased = (totalWeightedProgress / 100) * costOfWorks;

@@ -17,7 +17,7 @@ interface ReportBuilderModalProps {
 const formatCurrency = (value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 
 const initialOptions = (allCategoryIds: string[]): Omit<ReportOptions, 'layout'> => ({
-    title: 'Planilha de Levantamento de Serviços',
+    title: 'Planilha de Levantamento de Serviços - PLS',
     includeProjectDetails: true,
     includeFinancialSummary: true,
     includeProgressTable: true,

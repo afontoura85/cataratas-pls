@@ -29,16 +29,24 @@ const calculateProjectProgress = (project: Project): number => {
 
     template.forEach(category => {
         if (category && Array.isArray(category.subItems)) {
+            let categoryMeasuredSum = 0;
+            let categoryTotalIncidence = 0;
+
             category.subItems.forEach(item => {
+                const incidence = typeof item.incidence === 'number' ? item.incidence : 0;
+                categoryTotalIncidence += incidence;
+
                 const itemProgress = project.progress[item.id] || [];
                 // Ensure itemProgress is an array of numbers
                 const validProgress = Array.from({ length: unitCount }, (_, i) => typeof itemProgress[i] === 'number' ? itemProgress[i] : 0);
                 const averageProgress = validProgress.reduce((a, b) => a + b, 0) / unitCount;
 
-                if (typeof item.incidence === 'number') {
-                    totalWeightedProgress += (averageProgress / 100) * item.incidence;
-                }
+                categoryMeasuredSum += (averageProgress / 100) * incidence;
             });
+
+            // New logic: Sum of Subitems * Global Incidence (decimal) * 10
+            const measuredIncidence = categoryMeasuredSum * (categoryTotalIncidence / 100) * 10;
+            totalWeightedProgress += measuredIncidence;
         }
     });
 

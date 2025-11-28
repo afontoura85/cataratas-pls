@@ -38,12 +38,19 @@ export const UnitProgressSummary: React.FC<UnitProgressSummaryProps> = ({ projec
             let totalWeightedProgress = 0;
             
             plsData.forEach(category => {
+                let categoryUnitMeasuredSum = 0;
+
                 category.subItems.forEach(item => {
                     const itemProgressArray = progress[item.id] || [];
                     const unitProgress = itemProgressArray[unitIndex] || 0;
                     
-                    totalWeightedProgress += (unitProgress / 100) * item.incidence;
+                    categoryUnitMeasuredSum += (unitProgress / 100) * item.incidence;
                 });
+
+                // Apply new logic: Sum of Subitems * Global Incidence (decimal) * 10
+                // category.totalIncidence comes pre-calculated in dynamicPlsData
+                const categoryUnitMeasuredIncidence = categoryUnitMeasuredSum * (category.totalIncidence / 100) * 10;
+                totalWeightedProgress += categoryUnitMeasuredIncidence;
             });
             
             return {

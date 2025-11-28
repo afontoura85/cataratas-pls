@@ -1,3 +1,4 @@
+
 /**
  * @file Contém todas as definições de tipo e interface para a aplicação,
  * fornecendo um modelo de dados robusto e consistente.
@@ -301,6 +302,8 @@ export interface CategoryFinancials {
   totalCost: number;
   /** Incidência percentual total da categoria no projeto. */
   totalIncidence: number;
+  /** Incidência percentual medida (executada) no projeto. */
+  measuredIncidence: number;
 }
 
 /**
