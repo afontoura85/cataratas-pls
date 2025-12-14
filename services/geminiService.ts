@@ -7,11 +7,11 @@ import { GoogleGenAI, GroundingChunk, GenerateContentResponse } from "@google/ge
 import { Project, Financials, ServiceCategory, PlsCategoryTemplate, ScheduleStage, ReportOptions } from "../types";
 import * as XLSX from 'xlsx';
 
-const API_KEY = process.env.API_KEY;
+const API_KEY = import.meta.env.VITE_API_KEY;
 if (!API_KEY) {
-  // Em um aplicativo real, você lidaria com isso de forma mais elegante.
-  // Para este ambiente, assumimos que a API_KEY está definida.
-  console.warn("API_KEY is not set. Gemini API calls will fail.");
+    // Em um aplicativo real, você lidaria com isso de forma mais elegante.
+    // Para este ambiente, assumimos que a API_KEY está definida.
+    console.warn("API_KEY is not set. Gemini API calls will fail.");
 }
 
 const ai = new GoogleGenAI({ apiKey: API_KEY! });
@@ -28,7 +28,7 @@ const handleGeminiError = (error: unknown): string => {
             return "O modelo de IA está temporariamente indisponível. Por favor, aguarde um minuto e tente novamente.";
         }
         if (error.message.includes("API key not valid")) {
-             return "Chave de API inválida. Verifique suas configurações no arquivo config.ts.";
+            return "Chave de API inválida. Verifique suas configurações no arquivo config.ts.";
         }
         return error.message;
     }
@@ -75,7 +75,7 @@ const excelFileToText = (file: File): Promise<string> => {
         reader.onload = (e) => {
             try {
                 const data = e.target?.result;
-                 if (!data) {
+                if (!data) {
                     return reject(new Error("Não foi possível ler o arquivo."));
                 }
                 const workbook = XLSX.read(data, { type: 'array' });
@@ -88,7 +88,7 @@ const excelFileToText = (file: File): Promise<string> => {
                 reject(new Error("Falha ao analisar o arquivo Excel."));
             }
         };
-        
+
         reader.onerror = (error) => {
             console.error("FileReader error:", error);
             reject(new Error("Ocorreu um erro ao ler o arquivo."));
@@ -121,20 +121,20 @@ async function getFileContentForGemini(file: File): Promise<{ isText: true, cont
  * @returns {Promise<string>} Uma promessa que resolve com o texto de análise da IA ou uma mensagem de erro.
  */
 export const analyzeImage = async (image: File, items: { id: string; name: string }[]): Promise<string> => {
-  try {
-    const imagePart = await fileToGenerativePart(image);
-    const itemList = items.map(item => `- ${item.name} (id: ${item.id})`).join('\n');
-    const prompt = `Analyze this construction site photo. Based on the visible elements, which of the following construction stages appear to be complete or in progress? Please list the completed stages and provide a brief justification for each. Be concise. \n\nConstruction Stages:\n${itemList}`;
-    
-    const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: { parts: [imagePart, {text: prompt}] },
-    });
-    
-    return response.text;
-  } catch (error) {
-    return handleGeminiError(error);
-  }
+    try {
+        const imagePart = await fileToGenerativePart(image);
+        const itemList = items.map(item => `- ${item.name} (id: ${item.id})`).join('\n');
+        const prompt = `Analyze this construction site photo. Based on the visible elements, which of the following construction stages appear to be complete or in progress? Please list the completed stages and provide a brief justification for each. Be concise. \n\nConstruction Stages:\n${itemList}`;
+
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: { parts: [imagePart, { text: prompt }] },
+        });
+
+        return response.text;
+    } catch (error) {
+        return handleGeminiError(error);
+    }
 };
 
 /**
@@ -180,13 +180,13 @@ export const getComplexAdvice = async (plsData: any, progress: any, query: strin
  * @param {string} query A pergunta a ser pesquisada.
  * @returns {Promise<{text: string; sources: GroundingChunk[]}>} Uma promessa que resolve com o texto da resposta e as fontes da web.
  */
-export const getGroundedResearch = async (query: string): Promise<{text: string; sources: GroundingChunk[]}> => {
+export const getGroundedResearch = async (query: string): Promise<{ text: string; sources: GroundingChunk[] }> => {
     try {
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
             contents: query,
             config: {
-                tools: [{googleSearch: {}}],
+                tools: [{ googleSearch: {} }],
             },
         });
 
@@ -207,19 +207,19 @@ export const getGroundedResearch = async (query: string): Promise<{text: string;
 export const extractTextFromImage = async (image: File, userPrompt: string): Promise<string> => {
     try {
         const imagePart = await fileToGenerativePart(image);
-        
+
         let prompt = "You are an expert OCR tool. Your task is to extract text from the provided image accurately.";
         if (userPrompt) {
             prompt += `\n\nThe user has provided specific instructions: "${userPrompt}". Follow these instructions to extract and format the required information. If the user asks for a specific format like JSON, provide the output in that format.`
         } else {
             prompt += "\n\nTranscribe all the text you can see in the image."
         }
-        
+
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
-            contents: { parts: [imagePart, {text: prompt}] },
+            contents: { parts: [imagePart, { text: prompt }] },
         });
-        
+
         return response.text;
 
     } catch (error) {
@@ -286,7 +286,7 @@ export type ExtractedScheduleData = {
 export const extractDataFromFRE = async (file: File): Promise<ExtractedFreData | null> => {
     try {
         const promptData = await getFileContentForGemini(file);
-        
+
         const prompt = `
         You are an expert data extractor specializing in Brazilian civil engineering documents.
         Analyze the provided document, which is a FRE (Ficha Resumo do Empreendimento) from CAIXA.
@@ -354,9 +354,9 @@ export const extractDataFromFRE = async (file: File): Promise<ExtractedFreData |
                 contents: fullPrompt,
             });
         }
-        
+
         return cleanAndParseJson(response.text);
-        
+
     } catch (error) {
         throw new Error(handleGeminiError(error));
     }
@@ -371,7 +371,7 @@ export const extractDataFromFRE = async (file: File): Promise<ExtractedFreData |
 export const extractDataFromScheduleFile = async (file: File): Promise<ExtractedScheduleData | null> => {
     try {
         const promptData = await getFileContentForGemini(file);
-        
+
         const prompt = `
             You are an expert data extractor specializing in Brazilian civil engineering documents.
             Analyze the provided document, which is a "Cronograma Físico-Financeiro Global" from CAIXA.
@@ -440,7 +440,7 @@ export const extractDataFromScheduleFile = async (file: File): Promise<Extracted
               }
             }
         `;
-        
+
         let response: GenerateContentResponse;
 
         // FIX: Replaced check on `isText` with a `typeof` check on the `content` property
@@ -478,12 +478,12 @@ export const extractPlsFromBudgetFile = async (file: File): Promise<PlsCategoryT
     try {
         const promptData = await getFileContentForGemini(file);
         let textContent: string;
-        
+
         // FIX: Replaced check on `isText` with a `typeof` check on the `content` property
         // to ensure correct type narrowing by TypeScript, which was failing with the previous check.
         if (typeof promptData.content !== 'string') {
             const imagePart = promptData.content.parts[0];
-            const textPart = {text: "Extract all text from this document."};
+            const textPart = { text: "Extract all text from this document." };
             const ocrResponse = await ai.models.generateContent({
                 model: 'gemini-2.5-flash',
                 contents: { parts: [imagePart, textPart] },
@@ -563,7 +563,7 @@ export const extractPlsFromBudgetFile = async (file: File): Promise<PlsCategoryT
             ${textContent}
             ---
         `;
-        
+
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-pro',
             contents: prompt,
@@ -626,7 +626,7 @@ export const generateReportSummary = async (
             model: 'gemini-2.5-pro',
             contents: prompt,
         });
-        
+
         return response.text;
     } catch (error) {
         return handleGeminiError(error);

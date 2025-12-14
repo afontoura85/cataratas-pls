@@ -3,6 +3,10 @@ FROM node:18-alpine as builder
 
 WORKDIR /app
 
+# Aceitar a API key como build argument
+ARG VITE_API_KEY
+ENV VITE_API_KEY=$VITE_API_KEY
+
 COPY package*.json ./
 RUN npm ci
 
