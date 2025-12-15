@@ -8,63 +8,63 @@ import toast from 'react-hot-toast';
 // These are necessary because the Web Speech API is not yet a W3C standard
 // and TypeScript does not include its types by default.
 interface SpeechRecognitionEvent extends Event {
-  readonly resultIndex: number;
-  readonly results: SpeechRecognitionResultList;
+    readonly resultIndex: number;
+    readonly results: SpeechRecognitionResultList;
 }
 
 interface SpeechRecognitionResultList {
-  readonly length: number;
-  item(index: number): SpeechRecognitionResult;
-  [index: number]: SpeechRecognitionResult;
+    readonly length: number;
+    item(index: number): SpeechRecognitionResult;
+    [index: number]: SpeechRecognitionResult;
 }
 
 interface SpeechRecognitionResult {
-  readonly isFinal: boolean;
-  readonly length: number;
-  item(index: number): SpeechRecognitionAlternative;
-  [index: number]: SpeechRecognitionAlternative;
+    readonly isFinal: boolean;
+    readonly length: number;
+    item(index: number): SpeechRecognitionAlternative;
+    [index: number]: SpeechRecognitionAlternative;
 }
 
 interface SpeechRecognitionAlternative {
-  readonly transcript: string;
-  readonly confidence: number;
+    readonly transcript: string;
+    readonly confidence: number;
 }
 
 interface SpeechRecognitionErrorEvent extends Event {
-  readonly error: string;
-  readonly message: string;
+    readonly error: string;
+    readonly message: string;
 }
 
 interface SpeechRecognition extends EventTarget {
-  lang: string;
-  continuous: boolean;
-  interimResults: boolean;
-  onstart: ((this: SpeechRecognition, ev: Event) => any) | null;
-  onend: ((this: SpeechRecognition, ev: Event) => any) | null;
-  onerror: ((this: SpeechRecognition, ev: SpeechRecognitionErrorEvent) => any) | null;
-  onresult: ((this: SpeechRecognition, ev: SpeechRecognitionEvent) => any) | null;
-  start(): void;
-  stop(): void;
+    lang: string;
+    continuous: boolean;
+    interimResults: boolean;
+    onstart: ((this: SpeechRecognition, ev: Event) => any) | null;
+    onend: ((this: SpeechRecognition, ev: Event) => any) | null;
+    onerror: ((this: SpeechRecognition, ev: SpeechRecognitionErrorEvent) => any) | null;
+    onresult: ((this: SpeechRecognition, ev: SpeechRecognitionEvent) => any) | null;
+    start(): void;
+    stop(): void;
 }
 
 interface SpeechRecognitionStatic {
-  new (): SpeechRecognition;
+    new(): SpeechRecognition;
 }
 
 declare global {
-  interface Window {
-    SpeechRecognition: SpeechRecognitionStatic;
-    webkitSpeechRecognition: SpeechRecognitionStatic;
-  }
+    interface Window {
+        SpeechRecognition: SpeechRecognitionStatic;
+        webkitSpeechRecognition: SpeechRecognitionStatic;
+    }
 }
 
 interface TextAssistantModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  project: Project;
-  plsData: ServiceCategory[];
-  financials: Financials;
-  onUpdateProgressFromAssistant: (updates: AssistantProgressUpdate[]) => string;
+    isOpen: boolean;
+    onClose: () => void;
+    project: Project;
+    plsData: ServiceCategory[];
+    financials: Financials;
+    onUpdateProgressFromAssistant: (updates: AssistantProgressUpdate[]) => string;
 }
 
 interface Message {
@@ -113,10 +113,10 @@ export const TextAssistantModal: React.FC<TextAssistantModalProps> = ({ isOpen, 
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [isRecording, setIsRecording] = useState(false);
-    
+
     const [history, setHistory] = useState<Content[]>([]);
     const aiRef = useRef<GoogleGenAI | null>(null);
-    
+
     const recognitionRef = useRef<SpeechRecognition | null>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -142,11 +142,11 @@ export const TextAssistantModal: React.FC<TextAssistantModalProps> = ({ isOpen, 
         };
         return `Você é um assistente especialista em engenharia civil para o sistema PLS Cataratas. Sua função é analisar os dados do projeto e responder às perguntas do usuário. Você também pode ATUALIZAR o progresso dos serviços usando a ferramenta 'updateProgress'. Antes de chamar a função, sempre confirme a ação com o usuário. Após a execução, informe o resultado. Os dados do projeto, incluindo os nomes dos serviços e das unidades, estão no contexto abaixo. Use-os para preencher os argumentos da função.\n\nCONTEXTO DO PROJETO:\n${JSON.stringify(context, null, 2)}`;
     }, [project, plsData, financials]);
-    
+
     useEffect(() => {
         if (isOpen) {
             try {
-                aiRef.current = new GoogleGenAI({ apiKey: process.env.API_KEY! });
+                aiRef.current = new GoogleGenAI({ apiKey: import.meta.env.VITE_API_KEY! });
                 setHistory([]);
                 setMessages([]);
                 setInput('');
@@ -156,7 +156,7 @@ export const TextAssistantModal: React.FC<TextAssistantModalProps> = ({ isOpen, 
                 onClose();
             }
         } else {
-             if (recognitionRef.current) {
+            if (recognitionRef.current) {
                 recognitionRef.current.stop();
             }
         }
@@ -205,7 +205,7 @@ export const TextAssistantModal: React.FC<TextAssistantModalProps> = ({ isOpen, 
 
                 if (fc.name === 'updateProgress') {
                     const updates = fc.args.updates as AssistantProgressUpdate[] | undefined;
-                     if (!updates || !Array.isArray(updates)) {
+                    if (!updates || !Array.isArray(updates)) {
                         throw new Error("O modelo retornou argumentos inválidos para a função updateProgress.");
                     }
                     functionResultText = onUpdateProgressFromAssistant(updates);
@@ -224,7 +224,7 @@ export const TextAssistantModal: React.FC<TextAssistantModalProps> = ({ isOpen, 
                 };
 
                 const historyWithToolResponse = [...currentHistory, modelResponseContent, toolResponsePart];
-                
+
                 const finalResponse = await ai.models.generateContent({
                     model: 'gemini-2.5-flash',
                     contents: historyWithToolResponse,
@@ -233,7 +233,7 @@ export const TextAssistantModal: React.FC<TextAssistantModalProps> = ({ isOpen, 
                         tools: [{ functionDeclarations: [updateProgressFunctionDeclaration] }],
                     },
                 });
-                
+
                 const finalModelResponseContent = finalResponse.candidates![0].content;
                 setMessages(prev => [...prev, { role: 'model', content: finalResponse.text }]);
                 setHistory([...historyWithToolResponse, finalModelResponseContent]);
@@ -253,7 +253,7 @@ export const TextAssistantModal: React.FC<TextAssistantModalProps> = ({ isOpen, 
             setIsLoading(false);
         }
     };
-    
+
     const handleToggleRecording = () => {
         if (isRecording) {
             recognitionRef.current?.stop();
@@ -270,7 +270,7 @@ export const TextAssistantModal: React.FC<TextAssistantModalProps> = ({ isOpen, 
         recognitionRef.current.lang = 'pt-BR';
         recognitionRef.current.continuous = true;
         recognitionRef.current.interimResults = true;
-        
+
         recognitionRef.current.onstart = () => {
             setIsRecording(true);
         };
@@ -283,7 +283,7 @@ export const TextAssistantModal: React.FC<TextAssistantModalProps> = ({ isOpen, 
             console.error('Speech recognition error', event.error);
             toast.error(`Erro de gravação: ${event.error}`);
         };
-        
+
         recognitionRef.current.onresult = (event) => {
             const transcript = Array.from(event.results)
                 .map(result => result[0])
@@ -314,7 +314,7 @@ export const TextAssistantModal: React.FC<TextAssistantModalProps> = ({ isOpen, 
                             Assistente de Texto
                         </h2>
                     </div>
-                     <button onClick={onClose} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400">
+                    <button onClick={onClose} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400">
                         <CloseIcon />
                     </button>
                 </header>
@@ -322,16 +322,16 @@ export const TextAssistantModal: React.FC<TextAssistantModalProps> = ({ isOpen, 
                 <main className="flex-grow p-4 overflow-y-auto min-h-[300px] space-y-4">
                     {messages.map((msg, index) => (
                         <div key={index} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                            <div className={`max-w-xs md:max-w-md p-3 rounded-2xl ${msg.role === 'user' 
-                                ? 'bg-blue-500 text-white rounded-br-lg' 
+                            <div className={`max-w-xs md:max-w-md p-3 rounded-2xl ${msg.role === 'user'
+                                ? 'bg-blue-500 text-white rounded-br-lg'
                                 : 'bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-100 rounded-bl-lg'}`
                             }>
                                 <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
                             </div>
                         </div>
                     ))}
-                    {isLoading && messages[messages.length -1]?.role !== 'model' && (
-                         <div className="flex justify-start">
+                    {isLoading && messages[messages.length - 1]?.role !== 'model' && (
+                        <div className="flex justify-start">
                             <div className="max-w-xs p-3 rounded-2xl bg-slate-200 dark:bg-slate-700 rounded-bl-lg">
                                 <SpinnerIconSmall />
                             </div>
@@ -354,13 +354,12 @@ export const TextAssistantModal: React.FC<TextAssistantModalProps> = ({ isOpen, 
                         <button
                             type="button"
                             onClick={handleToggleRecording}
-                            className={`p-2 rounded-full transition-colors ${
-                                isRecording
-                                ? 'bg-red-500/20 text-red-500 animate-pulse'
-                                : 'hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400'
-                            }`}
+                            className={`p-2 rounded-full transition-colors ${isRecording
+                                    ? 'bg-red-500/20 text-red-500 animate-pulse'
+                                    : 'hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400'
+                                }`}
                             aria-label={isRecording ? 'Parar gravação' : 'Iniciar gravação'}
-                            >
+                        >
                             <MicrophoneIcon />
                         </button>
                         <button type="submit" disabled={isLoading || !input.trim()} className="px-4 py-2 bg-blue-500 text-white rounded-md font-semibold hover:bg-blue-600 disabled:bg-slate-400 disabled:cursor-not-allowed">
