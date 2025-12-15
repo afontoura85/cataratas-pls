@@ -6,64 +6,64 @@ import toast from 'react-hot-toast';
 // Audio helper functions as per guidelines
 // Base64 encode
 function encode(bytes: Uint8Array) {
-  let binary = '';
-  const len = bytes.byteLength;
-  for (let i = 0; i < len; i++) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  return btoa(binary);
+    let binary = '';
+    const len = bytes.byteLength;
+    for (let i = 0; i < len; i++) {
+        binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary);
 }
 
 // Base64 decode
 function decode(base64: string) {
-  const binaryString = atob(base64);
-  const len = binaryString.length;
-  const bytes = new Uint8Array(len);
-  for (let i = 0; i < len; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
-  }
-  return bytes;
+    const binaryString = atob(base64);
+    const len = binaryString.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+    }
+    return bytes;
 }
 
 // Custom PCM audio decoder
 async function decodeAudioData(
-  data: Uint8Array,
-  ctx: AudioContext,
-  sampleRate: number,
-  numChannels: number,
+    data: Uint8Array,
+    ctx: AudioContext,
+    sampleRate: number,
+    numChannels: number,
 ): Promise<AudioBuffer> {
-  const dataInt16 = new Int16Array(data.buffer);
-  const frameCount = dataInt16.length / numChannels;
-  const buffer = ctx.createBuffer(numChannels, frameCount, sampleRate);
+    const dataInt16 = new Int16Array(data.buffer);
+    const frameCount = dataInt16.length / numChannels;
+    const buffer = ctx.createBuffer(numChannels, frameCount, sampleRate);
 
-  for (let channel = 0; channel < numChannels; channel++) {
-    const channelData = buffer.getChannelData(channel);
-    for (let i = 0; i < frameCount; i++) {
-      channelData[i] = dataInt16[i * numChannels + channel] / 32768.0;
+    for (let channel = 0; channel < numChannels; channel++) {
+        const channelData = buffer.getChannelData(channel);
+        for (let i = 0; i < frameCount; i++) {
+            channelData[i] = dataInt16[i * numChannels + channel] / 32768.0;
+        }
     }
-  }
-  return buffer;
+    return buffer;
 }
 
 
 // Create a Blob for the API
 function createBlob(data: Float32Array): Blob {
-  const l = data.length;
-  const int16 = new Int16Array(l);
-  for (let i = 0; i < l; i++) {
-    int16[i] = data[i] * 32768;
-  }
-  return {
-    data: encode(new Uint8Array(int16.buffer)),
-    mimeType: 'audio/pcm;rate=16000',
-  };
+    const l = data.length;
+    const int16 = new Int16Array(l);
+    for (let i = 0; i < l; i++) {
+        int16[i] = data[i] * 32768;
+    }
+    return {
+        data: encode(new Uint8Array(int16.buffer)),
+        mimeType: 'audio/pcm;rate=16000',
+    };
 }
 
 // Component Props
 interface LiveAssistantModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  // We can pass project data here in the future to give context to the AI
+    isOpen: boolean;
+    onClose: () => void;
+    // We can pass project data here in the future to give context to the AI
 }
 
 type ConversationStatus = 'idle' | 'connecting' | 'listening' | 'speaking' | 'error';
@@ -73,7 +73,7 @@ export const LiveAssistantModal: React.FC<LiveAssistantModalProps> = ({ isOpen, 
     const [transcription, setTranscription] = useState<{ user: string; model: string }[]>([]);
     const [currentInput, setCurrentInput] = useState('');
     const [currentOutput, setCurrentOutput] = useState('');
-    
+
     // Using refs to hold onto objects that shouldn't trigger re-renders
     const sessionRef = useRef<Promise<any> | null>(null);
     const mediaStreamRef = useRef<MediaStream | null>(null);
@@ -99,8 +99,8 @@ export const LiveAssistantModal: React.FC<LiveAssistantModalProps> = ({ isOpen, 
             }
             mediaStreamRef.current = stream;
 
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
-            
+            const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_API_KEY! });
+
             // Output audio context for playing model's response
             const outputAudioContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
             let nextStartTime = 0;
@@ -112,11 +112,11 @@ export const LiveAssistantModal: React.FC<LiveAssistantModalProps> = ({ isOpen, 
                     onopen: () => {
                         console.debug('Live session opened.');
                         setStatus('listening');
-                        
+
                         // Input audio context for capturing user's voice
                         const inputAudioContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
                         audioContextRef.current = inputAudioContext;
-                        
+
                         const source = inputAudioContext.createMediaStreamSource(stream);
                         mediaStreamSourceRef.current = source;
 
@@ -138,14 +138,14 @@ export const LiveAssistantModal: React.FC<LiveAssistantModalProps> = ({ isOpen, 
                         if (message.serverContent?.inputTranscription) {
                             setCurrentInput(prev => prev + message.serverContent!.inputTranscription!.text);
                         }
-                        
+
                         const base64Audio = message.serverContent?.modelTurn?.parts[0]?.inlineData?.data;
                         if (base64Audio) {
                             setStatus('speaking');
                             const audioBuffer = await decodeAudioData(decode(base64Audio), outputAudioContext, 24000, 1);
-                            
+
                             nextStartTime = Math.max(nextStartTime, outputAudioContext.currentTime);
-                            
+
                             const source = outputAudioContext.createBufferSource();
                             source.buffer = audioBuffer;
                             source.connect(outputAudioContext.destination);
@@ -159,7 +159,7 @@ export const LiveAssistantModal: React.FC<LiveAssistantModalProps> = ({ isOpen, 
                                 }
                             });
                         }
-                        
+
                         if (message.serverContent?.outputTranscription) {
                             setCurrentOutput(prev => prev + message.serverContent!.outputTranscription!.text);
                         }
@@ -195,17 +195,17 @@ export const LiveAssistantModal: React.FC<LiveAssistantModalProps> = ({ isOpen, 
             toast.error("Não foi possível acessar o microfone. Verifique as permissões.");
         }
     };
-    
+
     const stopConversation = () => {
         isClosingRef.current = true;
         sessionRef.current?.then(session => session.close());
-        
+
         mediaStreamRef.current?.getTracks().forEach(track => track.stop());
         scriptProcessorRef.current?.disconnect();
         mediaStreamSourceRef.current?.disconnect();
         // Check if context is running before closing to avoid errors
         if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
-           audioContextRef.current.close();
+            audioContextRef.current.close();
         }
 
         sessionRef.current = null;
@@ -213,7 +213,7 @@ export const LiveAssistantModal: React.FC<LiveAssistantModalProps> = ({ isOpen, 
         audioContextRef.current = null;
         scriptProcessorRef.current = null;
         mediaStreamSourceRef.current = null;
-        
+
         setStatus('idle');
     };
 
@@ -242,7 +242,7 @@ export const LiveAssistantModal: React.FC<LiveAssistantModalProps> = ({ isOpen, 
                     <h2 className="text-xl font-bold text-gray-900 dark:text-slate-100">
                         Assistente de Voz
                     </h2>
-                     <button onClick={handleClose} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400">
+                    <button onClick={handleClose} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400">
                         <CloseIcon />
                     </button>
                 </header>
@@ -259,7 +259,7 @@ export const LiveAssistantModal: React.FC<LiveAssistantModalProps> = ({ isOpen, 
                 </main>
 
                 <footer className="p-6 border-t dark:border-slate-700 flex flex-col items-center justify-center">
-                    <button 
+                    <button
                         onClick={status === 'idle' || status === 'error' ? startConversation : stopConversation}
                         className={`w-20 h-20 rounded-full flex items-center justify-center text-white transition-colors duration-300
                             ${status === 'listening' ? 'bg-emerald-500 animate-pulse' : ''}
